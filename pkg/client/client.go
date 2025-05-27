@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jbovet/mcp-cli/pkg/models"
@@ -95,7 +96,7 @@ func (c *Client) GetServers(cursor string, limit int) (*ServersResponse, error) 
 	return &response, nil
 }
 
-// GetServer fetches detailed information about a specific server
+// GetServer fetches detailed information about a specific server by ID
 func (c *Client) GetServer(id string) (*ServerDetail, error) {
 	// Build URL
 	endpoint := fmt.Sprintf("%s/v0/servers/%s", c.baseURL, id)
@@ -123,6 +124,66 @@ func (c *Client) GetServer(id string) (*ServerDetail, error) {
 	}
 
 	return &server, nil
+}
+
+// GetServerByName fetches detailed information about a server by name
+// This method searches through all servers to find a match by name
+func (c *Client) GetServerByName(name string) (*ServerDetail, error) {
+	var cursor string
+
+	// Search through all pages to find the server
+	for {
+		response, err := c.GetServers(cursor, 100) // Use max limit for efficiency
+		if err != nil {
+			return nil, fmt.Errorf("failed to search servers: %w", err)
+		}
+
+		// Check each server in this page
+		for _, server := range response.Servers {
+			if server.Name == name {
+				// Found the server, now get full details
+				return c.GetServer(server.ID)
+			}
+		}
+
+		// If no more pages, stop searching
+		if response.Metadata.NextCursor == "" {
+			break
+		}
+		cursor = response.Metadata.NextCursor
+	}
+
+	return nil, fmt.Errorf("server with name '%s' not found", name)
+}
+
+// FindServersByNamePattern finds servers that match a name pattern (case-insensitive substring match)
+func (c *Client) FindServersByNamePattern(pattern string) ([]models.Server, error) {
+	var matchingServers []models.Server
+	var cursor string
+	pattern = strings.ToLower(pattern)
+
+	// Search through all pages
+	for {
+		response, err := c.GetServers(cursor, 100)
+		if err != nil {
+			return nil, fmt.Errorf("failed to search servers: %w", err)
+		}
+
+		// Check each server in this page
+		for _, server := range response.Servers {
+			if strings.Contains(strings.ToLower(server.Name), pattern) {
+				matchingServers = append(matchingServers, server)
+			}
+		}
+
+		// If no more pages, stop searching
+		if response.Metadata.NextCursor == "" {
+			break
+		}
+		cursor = response.Metadata.NextCursor
+	}
+
+	return matchingServers, nil
 }
 
 // GetHealth performs a health check against the service

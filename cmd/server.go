@@ -3,45 +3,176 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/jbovet/mcp-cli/pkg/client"
+	"github.com/jbovet/mcp-cli/pkg/models"
 	"github.com/spf13/cobra"
+)
+
+var (
+	// Flags for server command
+	serverByName bool
+	showMatches  bool
 )
 
 // serverCmd represents the server command
 var serverCmd = &cobra.Command{
-	Use:   "server <id>",
+	Use:   "server <id-or-name>",
 	Short: "Get detailed information about a specific server",
-	Long: `Get detailed information about a specific MCP server by its ID.
+	Long: `Get detailed information about a specific MCP server by its ID or name.
 
-This command fetches and displays comprehensive information about a server,
-including its packages, environment variables, and configuration details.`,
+You can specify either:
+- A server ID (UUID format): 123e4567-e89b-12d3-a456-426614174000  
+- A server name: io.github.owner/server-name
+- A name pattern with --name flag for fuzzy matching
+
+The command will automatically detect whether you provided an ID or name.`,
 	Example: `  # Get server details by ID
-  mcp-cli get server 123e4567-e89b-12d3-a456-426614174000`,
+  mcp-cli get server 123e4567-e89b-12d3-a456-426614174000
+
+  # Get server details by exact name
+  mcp-cli get server io.github.owner/server-name
+
+  # Search for servers by name pattern
+  mcp-cli get server redis --name --show-matches
+
+  # Find servers containing "github" in the name
+  mcp-cli get server github --name`,
 	Args: cobra.ExactArgs(1),
 	RunE: runServerCommand,
 }
 
 func runServerCommand(cmd *cobra.Command, args []string) error {
-	serverID := args[0]
+	identifier := args[0]
 
 	// Create API client
 	apiClient := client.NewClient(baseURL)
 
-	// Fetch server details from API
-	server, err := apiClient.GetServer(serverID)
-	if err != nil {
-		return fmt.Errorf("failed to fetch server details: %w", err)
+	var server *client.ServerDetail
+	var err error
+
+	// Determine if identifier is UUID or name
+	if isUUID(identifier) && !serverByName {
+		// It's a UUID, get directly by ID
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Looking up server by ID: %s\n", identifier)
+		}
+		server, err = apiClient.GetServer(identifier)
+		if err != nil {
+			return fmt.Errorf("failed to fetch server by ID: %w", err)
+		}
+	} else {
+		// It's a name or forced name lookup
+		if showMatches {
+			// Show all matches for pattern
+			return showServerMatches(apiClient, identifier)
+		}
+
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Looking up server by name: %s\n", identifier)
+		}
+
+		// Try exact name match first
+		server, err = apiClient.GetServerByName(identifier)
+		if err != nil {
+			// If exact match fails, suggest pattern search
+			if strings.Contains(err.Error(), "not found") {
+				matches, searchErr := apiClient.FindServersByNamePattern(identifier)
+				if searchErr != nil {
+					return fmt.Errorf("failed to search for servers: %w", searchErr)
+				}
+
+				if len(matches) == 0 {
+					return fmt.Errorf("no servers found matching '%s'", identifier)
+				}
+
+				if len(matches) == 1 {
+					// Only one match, get its details
+					if verbose {
+						fmt.Fprintf(os.Stderr, "Found single match: %s\n", matches[0].Name)
+					}
+					server, err = apiClient.GetServer(matches[0].ID)
+					if err != nil {
+						return fmt.Errorf("failed to fetch server details: %w", err)
+					}
+				} else {
+					// Multiple matches, show them
+					fmt.Printf("Multiple servers found matching '%s':\n\n", identifier)
+					return displayServerList(matches, "Use exact name or ID to get details")
+				}
+			} else {
+				return fmt.Errorf("failed to fetch server by name: %w", err)
+			}
+		}
 	}
 
 	if verbose {
-		fmt.Fprintf(os.Stderr, "Fetched server details for ID: %s\n", serverID)
+		fmt.Fprintf(os.Stderr, "Successfully fetched server details\n")
 	}
 
 	// Display server details
 	if err := displayServerDetails(server); err != nil {
 		return fmt.Errorf("failed to display server details: %w", err)
+	}
+
+	return nil
+}
+
+// isUUID checks if a string is in UUID format
+func isUUID(s string) bool {
+	uuidRegex := regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	return uuidRegex.MatchString(s)
+}
+
+// showServerMatches displays all servers that match a pattern
+func showServerMatches(apiClient *client.Client, pattern string) error {
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Searching for servers matching pattern: %s\n", pattern)
+	}
+
+	matches, err := apiClient.FindServersByNamePattern(pattern)
+	if err != nil {
+		return fmt.Errorf("failed to search servers: %w", err)
+	}
+
+	if len(matches) == 0 {
+		fmt.Printf("No servers found matching pattern '%s'\n", pattern)
+		return nil
+	}
+
+	fmt.Printf("Found %d server(s) matching '%s':\n\n", len(matches), pattern)
+	return displayServerList(matches, "Use exact name or ID to get details")
+}
+
+// displayServerList shows a list of servers in table format
+func displayServerList(servers []models.Server, footer string) error {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	defer w.Flush()
+
+	// Print header
+	fmt.Fprintln(w, "ID\tNAME\tVERSION\tDESCRIPTION")
+	fmt.Fprintln(w, "---\t----\t-------\t-----------")
+
+	// Print each server
+	for _, server := range servers {
+		description := server.Description
+		if len(description) > 50 {
+			description = description[:47] + "..."
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			server.ID,
+			server.Name,
+			server.VersionDetail.Version,
+			description,
+		)
+	}
+
+	if footer != "" {
+		fmt.Fprintf(w, "\n%s\n", footer)
 	}
 
 	return nil
@@ -158,4 +289,6 @@ func displayServerDetails(server *client.ServerDetail) error {
 
 func init() {
 	getCmd.AddCommand(serverCmd)
+	serverCmd.Flags().BoolVar(&serverByName, "name", false, "Force name-based lookup (enables pattern matching)")
+	serverCmd.Flags().BoolVar(&showMatches, "show-matches", false, "Show all servers matching the pattern instead of details")
 }
