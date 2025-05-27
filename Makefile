@@ -37,6 +37,7 @@ lint:
 # Format code
 fmt:
 	go fmt ./...
+	gofmt -s -w .
 
 # Run go vet
 vet:
