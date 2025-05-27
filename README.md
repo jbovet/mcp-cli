@@ -1,6 +1,6 @@
 # MCP CLI
 
-A command-line interface for interacting with the MCP Registry Service.
+A command-line interface for interacting with the [MCP Registry Service](https://github.com/modelcontextprotocol/registry).
 
 ## Features
 
