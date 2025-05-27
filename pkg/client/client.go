@@ -79,7 +79,9 @@ func (c *Client) GetServers(cursor string, limit int) (*ServersResponse, error) 
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {
@@ -106,7 +108,9 @@ func (c *Client) GetServer(id string) (*ServerDetail, error) {
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Check status code
 	if resp.StatusCode == http.StatusNotFound {
@@ -196,7 +200,9 @@ func (c *Client) GetHealth() (*HealthResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {
@@ -223,7 +229,9 @@ func (c *Client) Ping() (*PingResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {

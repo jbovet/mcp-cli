@@ -46,12 +46,14 @@ func TestRootCommand(t *testing.T) {
 
 func TestFlagValues(t *testing.T) {
 	t.Run("custom url flag", func(t *testing.T) {
-		rootCmd.PersistentFlags().Set("url", "http://custom:9090")
+		err := rootCmd.PersistentFlags().Set("url", "http://custom:9090")
+		assert.NoError(t, err)
 		assert.Equal(t, "http://custom:9090", baseURL)
 	})
 
 	t.Run("verbose flag", func(t *testing.T) {
-		rootCmd.PersistentFlags().Set("verbose", "true")
+		err := rootCmd.PersistentFlags().Set("verbose", "true")
+		assert.NoError(t, err)
 		assert.True(t, verbose)
 	})
 }

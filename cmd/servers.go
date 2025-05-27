@@ -64,11 +64,13 @@ func displayServersTable(response *client.ServersResponse) error {
 
 	// Create table writer
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		_ = w.Flush()
+	}()
 
 	// Print header
-	fmt.Fprintln(w, "ID\tNAME\tVERSION\tDESCRIPTION")
-	fmt.Fprintln(w, "---\t----\t-------\t-----------")
+	_, _ = fmt.Fprintln(w, "ID\tNAME\tVERSION\tDESCRIPTION")
+	_, _ = fmt.Fprintln(w, "---\t----\t-------\t-----------")
 
 	// Print each server
 	for _, server := range response.Servers {
@@ -77,7 +79,7 @@ func displayServersTable(response *client.ServersResponse) error {
 			description = description[:47] + "..."
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			server.ID,
 			server.Name,
 			server.VersionDetail.Version,
@@ -87,9 +89,9 @@ func displayServersTable(response *client.ServersResponse) error {
 
 	// Print pagination info if available
 	if response.Metadata.NextCursor != "" {
-		fmt.Fprintf(w, "\n")
-		fmt.Fprintf(w, "Next cursor: %s\n", response.Metadata.NextCursor)
-		fmt.Fprintf(w, "Use --cursor flag to continue pagination\n")
+		_, _ = fmt.Fprintf(w, "\n")
+		_, _ = fmt.Fprintf(w, "Next cursor: %s\n", response.Metadata.NextCursor)
+		_, _ = fmt.Fprintf(w, "Use --cursor flag to continue pagination\n")
 	}
 
 	return nil

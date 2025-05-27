@@ -150,11 +150,13 @@ func showServerMatches(apiClient *client.Client, pattern string) error {
 // displayServerList shows a list of servers in table format
 func displayServerList(servers []models.Server, footer string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		_ = w.Flush()
+	}()
 
 	// Print header
-	fmt.Fprintln(w, "ID\tNAME\tVERSION\tDESCRIPTION")
-	fmt.Fprintln(w, "---\t----\t-------\t-----------")
+	_, _ = fmt.Fprintln(w, "ID\tNAME\tVERSION\tDESCRIPTION")
+	_, _ = fmt.Fprintln(w, "---\t----\t-------\t-----------")
 
 	// Print each server
 	for _, server := range servers {
@@ -163,7 +165,7 @@ func displayServerList(servers []models.Server, footer string) error {
 			description = description[:47] + "..."
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			server.ID,
 			server.Name,
 			server.VersionDetail.Version,
@@ -172,7 +174,7 @@ func displayServerList(servers []models.Server, footer string) error {
 	}
 
 	if footer != "" {
-		fmt.Fprintf(w, "\n%s\n", footer)
+		_, _ = fmt.Fprintf(w, "\n%s\n", footer)
 	}
 
 	return nil
@@ -214,49 +216,49 @@ func displayServerDetails(server *client.ServerDetail) error {
 			if len(pkg.PackageArguments) > 0 {
 				fmt.Printf("   Package Arguments:\n")
 				w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-				fmt.Fprintln(w, "     TYPE\tNAME\tREQUIRED\tDEFAULT\tDESCRIPTION")
+				_, _ = fmt.Fprintln(w, "     TYPE\tNAME\tREQUIRED\tDEFAULT\tDESCRIPTION")
 				for _, arg := range pkg.PackageArguments {
 					argType := string(arg.Type)
 					required := "No"
 					if arg.IsRequired {
 						required = "Yes"
 					}
-					fmt.Fprintf(w, "     %s\t%s\t%s\t%s\t%s\n",
+					_, _ = fmt.Fprintf(w, "     %s\t%s\t%s\t%s\t%s\n",
 						argType, arg.Name, required, arg.Default, arg.Description)
 				}
-				w.Flush()
+				_ = w.Flush()
 			}
 
 			// Runtime arguments
 			if len(pkg.RuntimeArguments) > 0 {
 				fmt.Printf("   Runtime Arguments:\n")
 				w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-				fmt.Fprintln(w, "     TYPE\tNAME\tREQUIRED\tDEFAULT\tDESCRIPTION")
+				_, _ = fmt.Fprintln(w, "     TYPE\tNAME\tREQUIRED\tDEFAULT\tDESCRIPTION")
 				for _, arg := range pkg.RuntimeArguments {
 					argType := string(arg.Type)
 					required := "No"
 					if arg.IsRequired {
 						required = "Yes"
 					}
-					fmt.Fprintf(w, "     %s\t%s\t%s\t%s\t%s\n",
+					_, _ = fmt.Fprintf(w, "     %s\t%s\t%s\t%s\t%s\n",
 						argType, arg.Name, required, arg.Default, arg.Description)
 				}
-				w.Flush()
+				_ = w.Flush()
 			}
 
 			// Environment variables
 			if len(pkg.EnvironmentVariables) > 0 {
 				fmt.Printf("   Environment Variables:\n")
 				w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-				fmt.Fprintln(w, "     NAME\tREQUIRED\tDESCRIPTION")
+				_, _ = fmt.Fprintln(w, "     NAME\tREQUIRED\tDESCRIPTION")
 				for _, env := range pkg.EnvironmentVariables {
 					required := "No"
 					if env.IsRequired {
 						required = "Yes"
 					}
-					fmt.Fprintf(w, "     %s\t%s\t%s\n", env.Name, required, env.Description)
+					_, _ = fmt.Fprintf(w, "     %s\t%s\t%s\n", env.Name, required, env.Description)
 				}
-				w.Flush()
+				_ = w.Flush()
 			}
 
 			if i < len(server.Packages)-1 {
