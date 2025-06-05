@@ -75,6 +75,17 @@ func runConnectCommand(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Expand connectArgs if any entry contains spaces (e.g., passed as a single string)
+	if len(connectArgs) > 0 {
+		var expandedArgs []string
+		for _, arg := range connectArgs {
+			// Split only if there are spaces and not already quoted
+			fields := strings.Fields(arg)
+			expandedArgs = append(expandedArgs, fields...)
+		}
+		config.Args = expandedArgs
+	}
+
 	// Create the appropriate adapter
 	adapterType := adapter.AdapterType(connectType)
 	serverAdapter, err := adapter.NewAdapter(adapterType, config)
