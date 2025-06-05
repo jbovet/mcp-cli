@@ -1,15 +1,24 @@
 # MCP CLI
 
-A command-line interface for interacting with the [MCP Registry Service](https://github.com/modelcontextprotocol/registry).
+A command-line interface for interacting with the [MCP Registry Service](https://github.com/modelcontextprotocol/registry) and connecting directly to MCP servers.
 
 ## Features
 
-- List registered MCP servers
-- Get detailed server information by ID or name
-- Check service health and status
-- Service ping functionality
-- Pagination support for listing servers
-- Pattern matching for server searches
+- **Registry Service Integration:**
+  - List registered MCP servers
+  - Get detailed server information by ID or name
+  - Check service health and status
+  - Service ping functionality
+  - Pagination support for listing servers
+  - Pattern matching for server searches
+
+- **Direct MCP Server Connection:**
+  - Connect to MCP servers via stdio transport
+  - Connect to HTTP-based MCP servers
+  - Interactive mode for real-time server exploration
+  - Tool execution with argument parsing
+  - Resource reading capabilities
+  - Prompt listing and interaction
 
 ## Installation
 
@@ -25,7 +34,7 @@ The binary will be created in `bin/mcp-cli`.
 
 ## Usage
 
-### Basic Commands
+### Registry Service Commands
 
 ```sh
 # List all servers
@@ -47,15 +56,104 @@ mcp-cli health
 mcp-cli ping
 ```
 
+### Direct MCP Server Connection
+
+#### Stdio Transport (Local Processes)
+
+```sh
+# Connect to a Python MCP server
+mcp-cli connect --type stdio --command "python" --args "server.py"
+
+# Connect to a Node.js MCP server with environment variables
+mcp-cli connect --type stdio --command "node" --args "server.js" --env "DEBUG=1"
+
+# Connect using command string parsing
+mcp-cli connect --type stdio --command "python /path/to/server.py --port 8080"
+
+# Interactive mode for exploration
+mcp-cli connect --type stdio --command "python server.py" --interactive
+```
+
+#### HTTP Transport (Remote Servers)
+
+```sh
+# Connect to HTTP MCP server
+mcp-cli connect --type http --url "http://localhost:8080/mcp"
+
+# Connect to HTTPS MCP server
+mcp-cli connect --type streamable --url "https://api.example.com/mcp"
+
+# Interactive mode with HTTP server
+mcp-cli connect --type http --url "http://localhost:8080/mcp" --interactive
+```
+
+#### Interactive Mode Commands
+
+When running with `--interactive`, you can use these commands:
+
+```sh
+# List server capabilities
+tools         # List available tools
+resources     # List available resources  
+prompts       # List available prompts
+
+# Execute operations
+call <tool-name> [args...]    # Call a tool with arguments
+read <resource-uri>           # Read a resource by URI
+
+# Navigation
+help          # Show help message
+quit/exit     # Exit interactive mode
+```
+
+#### Example Interactive Session
+
+```sh
+> tools
+Available tools (3):
+1. validate_api - Validate API specifications
+2. format_code - Format source code
+3. analyze_logs - Analyze log files
+
+> call validate_api openapi.yaml
+Tool 'validate_api' result:
+✅ Tool executed successfully:
+    API specification is valid
+    Found 12 endpoints
+    No validation errors
+
+> resources
+Available resources (2):
+1. file://config.json (Configuration) - Server configuration
+2. file://schema.yaml (Schema) - API schema definition
+
+> read file://config.json
+Resource content:
+  Text (application/json): {"server": {"port": 8080}}
+
+> quit
+Goodbye!
+```
+
 ### Global Flags
 
 - `--url`: Base URL of the MCP Registry Service (default: http://localhost:8080)
 - `--verbose, -v`: Enable verbose output
 
-### Server Listing Options
+### Registry Service Options
 
 - `--limit`: Maximum number of servers to return (1-100)
 - `--cursor`: Pagination cursor for fetching next page
+
+### Connect Command Options
+
+- `--type`: Transport type (`stdio`, `http`, `streamable`)
+- `--url`: Server URL for HTTP-based connections
+- `--command`: Command to execute for stdio connections
+- `--args`: Arguments for the command (can be repeated)
+- `--env`: Environment variables for the command (can be repeated)
+- `--timeout`: Connection timeout (default: 60s)
+- `--interactive`: Run in interactive mode
 
 ## Development
 
@@ -87,11 +185,40 @@ make clean
 
 ```
 cmd/        - Command implementations
+  connect.go      - MCP server connection command
+  get.go         - Registry "get" command group
+  server.go      - Individual server details
+  servers.go     - Server listing
+  health.go      - Health check command
+  ping.go        - Ping command
 pkg/        - Core packages
-  client/   - API client implementation
+  client/   - Registry API client implementation
   models/   - Data models
+  adapter/  - MCP server adapters (stdio, HTTP)
+    adapter.go    - Core adapter interfaces
+    stdio.go      - Stdio transport implementation
+    http.go       - HTTP transport implementation
+    factory.go    - Adapter factory and utilities
 bin/        - Build output
 ```
+
+## Use Cases
+
+### Registry Integration
+- Discover available MCP servers in the registry
+- Get detailed information about server capabilities
+- Monitor registry service health
+
+### Direct Server Testing
+- Test MCP server implementations during development
+- Validate tool and resource functionality
+- Interactive debugging and exploration
+- Automated testing and validation scripts
+
+### CI/CD Integration
+- Health checks in deployment pipelines
+- Automated server capability validation
+- Registry service monitoring
 
 ## License
 
