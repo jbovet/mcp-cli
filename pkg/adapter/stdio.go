@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	mcpclient "github.com/mark3labs/mcp-go/client"
@@ -40,8 +41,6 @@ func (s *StdioAdapter) Connect(ctx context.Context) error {
 	}
 
 	s.logf("Connecting to MCP server via stdio: %s %v", s.config.Command, s.config.Args)
-
-	// Create stdio client
 	client, err := mcpclient.NewStdioMCPClient(
 		s.config.Command,
 		s.config.Env,
@@ -51,7 +50,18 @@ func (s *StdioAdapter) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to create stdio client: %w", err)
 	}
 
+	// Log client for debugging
+	s.logf("Created stdio client: %+v", client)
+
 	s.client = client
+
+	// Wait and check if process is still alive
+	if err := s.waitForProcessReady(ctx); err != nil {
+		if closeErr := s.client.Close(); closeErr != nil {
+			s.logf("Warning: failed to close stdio client during cleanup: %v", closeErr)
+		}
+		return err
+	}
 
 	// Initialize the connection
 	initRequest := mcp.InitializeRequest{}
@@ -60,12 +70,21 @@ func (s *StdioAdapter) Connect(ctx context.Context) error {
 		Name:    "mcp-cli-adapter",
 		Version: "1.0.0",
 	}
+	initRequest.Params.Capabilities = mcp.ClientCapabilities{
+		Roots: &struct {
+			ListChanged bool `json:"listChanged,omitempty"`
+		}{
+			ListChanged: true,
+		},
+	}
 
+	s.logf("Sending initialize request with timeout: %v", s.config.Timeout)
 	ctx, cancel := context.WithTimeout(ctx, s.config.Timeout)
 	defer cancel()
 
 	result, err := s.client.Initialize(ctx, initRequest)
 	if err != nil {
+		s.logf("Initialize failed: %v", err)
 		if err := s.client.Close(); err != nil {
 			// Log the error but don't return it since this is likely in a cleanup context
 			fmt.Fprintf(os.Stderr, "Warning: failed to close stdio client: %v\n", err)
@@ -189,4 +208,64 @@ func (s *StdioAdapter) GetPrompt(ctx context.Context, name string, arguments map
 	}
 
 	return result, nil
+}
+
+func (s *StdioAdapter) waitForProcessReady(ctx context.Context) error {
+	s.logf("Waiting for process to be ready...")
+
+	// Check multiple times with increasing delays
+	delays := []time.Duration{100 * time.Millisecond, 500 * time.Millisecond, 1 * time.Second}
+
+	for i, delay := range delays {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+
+		s.logf("Process readiness check %d/%d", i+1, len(delays))
+
+		// Try a quick ping to see if process responds
+		pingCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+		err := s.pingProcess(pingCtx)
+		cancel()
+
+		if err == nil {
+			s.logf("Process is ready!")
+			return nil
+		}
+
+		if isProcessExitError(err) {
+			return fmt.Errorf("process exited unexpectedly - check command '%s %v'",
+				s.config.Command, s.config.Args)
+		}
+
+		s.logf("Process not ready yet (attempt %d): %v", i+1, err)
+	}
+
+	return fmt.Errorf("process did not become ready within expected time")
+}
+
+func (s *StdioAdapter) pingProcess(ctx context.Context) error {
+	// Send a minimal request to test if the process is alive and responding
+	initRequest := mcp.InitializeRequest{}
+	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initRequest.Params.ClientInfo = mcp.Implementation{
+		Name:    "ping",
+		Version: "1.0.0",
+	}
+
+	_, err := s.client.Initialize(ctx, initRequest)
+	return err
+}
+func isProcessExitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "process") ||
+		strings.Contains(errStr, "exit") ||
+		strings.Contains(errStr, "pipe") ||
+		strings.Contains(errStr, "broken") ||
+		strings.Contains(errStr, "EOF")
 }
