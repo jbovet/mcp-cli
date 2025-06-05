@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	mcpclient "github.com/mark3labs/mcp-go/client"
@@ -61,7 +62,10 @@ func (h *HTTPAdapter) Connect(ctx context.Context) error {
 
 	result, err := h.client.Initialize(ctx, initRequest)
 	if err != nil {
-		h.client.Close()
+		if err := h.client.Close(); err != nil {
+			// Log the error but don't return it since this is likely in a cleanup context
+			fmt.Fprintf(os.Stderr, "Warning: failed to close HTTP client: %v\n", err)
+		}
 		return fmt.Errorf("failed to initialize: %w", err)
 	}
 

@@ -245,6 +245,8 @@ func TestAdapterIntegration(t *testing.T) {
 		}
 
 		// Always disconnect to clean up
-		adapter.Disconnect()
+		if err := adapter.Disconnect(); err != nil {
+			t.Errorf("Failed to disconnect: %v", err)
+		}
 	})
 }

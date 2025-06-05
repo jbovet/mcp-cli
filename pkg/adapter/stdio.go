@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	mcpclient "github.com/mark3labs/mcp-go/client"
@@ -65,7 +66,10 @@ func (s *StdioAdapter) Connect(ctx context.Context) error {
 
 	result, err := s.client.Initialize(ctx, initRequest)
 	if err != nil {
-		s.client.Close()
+		if err := s.client.Close(); err != nil {
+			// Log the error but don't return it since this is likely in a cleanup context
+			fmt.Fprintf(os.Stderr, "Warning: failed to close stdio client: %v\n", err)
+		}
 		return fmt.Errorf("failed to initialize: %w", err)
 	}
 

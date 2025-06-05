@@ -90,7 +90,12 @@ func runConnectCommand(cmd *cobra.Command, args []string) error {
 	if err := serverAdapter.Connect(ctx); err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}
-	defer serverAdapter.Disconnect()
+
+	defer func() {
+		if err := serverAdapter.Disconnect(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to disconnect: %v\n", err)
+		}
+	}()
 
 	// Get server information
 	serverInfo, err := serverAdapter.GetServerInfo()
@@ -121,16 +126,24 @@ func showServerCapabilities(ctx context.Context, adapter adapter.ServerAdapter) 
 		fmt.Printf("\nTools (%d available):\n", len(tools))
 		if len(tools) > 0 {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "NAME\tDESCRIPTION")
-			fmt.Fprintln(w, "----\t-----------")
+			if _, err := fmt.Fprintln(w, "NAME\tDESCRIPTION"); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(w, "----\t-----------"); err != nil {
+				return err
+			}
 			for _, tool := range tools {
 				description := tool.Description
 				if len(description) > 60 {
 					description = description[:57] + "..."
 				}
-				fmt.Fprintf(w, "%s\t%s\n", tool.Name, description)
+				if _, err := fmt.Fprintf(w, "%s\t%s\n", tool.Name, description); err != nil {
+					return err
+				}
 			}
-			w.Flush()
+			if err := w.Flush(); err != nil {
+				return err
+			}
 		} else {
 			fmt.Println("  No tools available")
 		}
@@ -144,16 +157,24 @@ func showServerCapabilities(ctx context.Context, adapter adapter.ServerAdapter) 
 		fmt.Printf("\nResources (%d available):\n", len(resources))
 		if len(resources) > 0 {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "URI\tNAME\tDESCRIPTION")
-			fmt.Fprintln(w, "---\t----\t-----------")
+			if _, err := fmt.Fprintln(w, "URI\tNAME\tDESCRIPTION"); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(w, "---\t----\t-----------"); err != nil {
+				return err
+			}
 			for _, resource := range resources {
 				description := resource.Description
 				if len(description) > 50 {
 					description = description[:47] + "..."
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", resource.URI, resource.Name, description)
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", resource.URI, resource.Name, description); err != nil {
+					return err
+				}
 			}
-			w.Flush()
+			if err := w.Flush(); err != nil {
+				return err
+			}
 		} else {
 			fmt.Println("  No resources available")
 		}
@@ -167,16 +188,26 @@ func showServerCapabilities(ctx context.Context, adapter adapter.ServerAdapter) 
 		fmt.Printf("\nPrompts (%d available):\n", len(prompts))
 		if len(prompts) > 0 {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "NAME\tDESCRIPTION")
-			fmt.Fprintln(w, "----\t-----------")
+			if _, err := fmt.Fprintln(w, "NAME\tDESCRIPTION"); err != nil {
+				return err
+			}
+
+			if _, err := fmt.Fprintln(w, "----\t-----------"); err != nil {
+				return err
+			}
 			for _, prompt := range prompts {
 				description := prompt.Description
 				if len(description) > 60 {
 					description = description[:57] + "..."
 				}
-				fmt.Fprintf(w, "%s\t%s\n", prompt.Name, description)
+
+				if _, err := fmt.Fprintf(w, "%s\t%s\n", prompt.Name, description); err != nil {
+					return err
+				}
 			}
-			w.Flush()
+			if err := w.Flush(); err != nil {
+				return err
+			}
 		} else {
 			fmt.Println("  No prompts available")
 		}

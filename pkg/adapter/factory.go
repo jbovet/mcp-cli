@@ -127,30 +127,6 @@ func getBool(config map[string]interface{}, key string, defaultValue bool) bool 
 	}
 	return defaultValue
 }
-
-func getString(config map[string]interface{}, key string, defaultValue string) string {
-	if val, ok := config[key].(string); ok {
-		return val
-	}
-	return defaultValue
-}
-
-func getStringSlice(config map[string]interface{}, key string) []string {
-	if val, ok := config[key].([]string); ok {
-		return val
-	}
-	if val, ok := config[key].([]interface{}); ok {
-		result := make([]string, len(val))
-		for i, v := range val {
-			if s, ok := v.(string); ok {
-				result[i] = s
-			}
-		}
-		return result
-	}
-	return nil
-}
-
 func getDuration(config map[string]interface{}, key string, defaultValue time.Duration) time.Duration {
 	if val, ok := config[key].(time.Duration); ok {
 		return val
