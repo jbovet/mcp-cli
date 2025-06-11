@@ -3,7 +3,7 @@ module github.com/jbovet/mcp-cli
 go 1.24.3
 
 require (
-	github.com/mark3labs/mcp-go v0.31.0
+	github.com/mark3labs/mcp-go v0.32.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 )
